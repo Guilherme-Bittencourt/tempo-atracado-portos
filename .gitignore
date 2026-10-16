@@ -1,0 +1,28 @@
+# Dados da ANTAQ (públicos, mas grandes: baixe conforme o README)
+dados/*
+!dados/README.md
+*.zip
+*.txt
+!requirements.txt
+
+# Modelos treinados (centenas de MB; os resultados em resultados/ são versionados)
+resultados/modelos/
+*.joblib
+catboost_info/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/
+
+# Notebooks e sistema
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

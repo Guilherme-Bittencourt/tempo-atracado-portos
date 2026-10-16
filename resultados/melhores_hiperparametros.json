@@ -1,0 +1,50 @@
+{
+  "CatBoost": {
+    "depth": 7,
+    "iterations": 1199,
+    "l2_leaf_reg": 2.324672848950434,
+    "learning_rate": 0.07126582239713602
+  },
+  "Random Forest": {
+    "modelo__max_depth": 18,
+    "modelo__max_features": 0.5,
+    "modelo__min_samples_leaf": 2,
+    "modelo__n_estimators": 393
+  },
+  "XGBoost": {
+    "modelo__colsample_bytree": 0.9687496940092467,
+    "modelo__learning_rate": 0.024520114718375053,
+    "modelo__max_depth": 10,
+    "modelo__min_child_weight": 9,
+    "modelo__n_estimators": 595,
+    "modelo__reg_lambda": 4.887285358835578,
+    "modelo__subsample": 0.8989280440549523
+  },
+  "Ridge": {
+    "modelo__alpha": 3.907967156822881
+  },
+  "CatBoost + perfil": {
+    "depth": 7,
+    "iterations": 1199,
+    "l2_leaf_reg": 2.324672848950434,
+    "learning_rate": 0.07126582239713602
+  },
+  "Random Forest + perfil": {
+    "modelo__max_depth": 18,
+    "modelo__max_features": 0.5,
+    "modelo__min_samples_leaf": 2,
+    "modelo__n_estimators": 393
+  },
+  "XGBoost + perfil": {
+    "modelo__colsample_bytree": 0.9687496940092467,
+    "modelo__learning_rate": 0.024520114718375053,
+    "modelo__max_depth": 10,
+    "modelo__min_child_weight": 9,
+    "modelo__n_estimators": 595,
+    "modelo__reg_lambda": 4.887285358835578,
+    "modelo__subsample": 0.8989280440549523
+  },
+  "Ridge + perfil": {
+    "modelo__alpha": 3.907967156822881
+  }
+}

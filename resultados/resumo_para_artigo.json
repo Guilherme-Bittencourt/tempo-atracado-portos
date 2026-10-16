@@ -1,0 +1,66 @@
+{
+  "Origem do TA": "Data Desatracação − Data Atracação",
+  "Conferência do TA": null,
+  "Atributo de armador": "nacionalidade do armador",
+  "Funil": {
+    "1_atracacoes_brutas_2022_2024": 285844,
+    "2_com_registro_de_tempo": 285844,
+    "3_com_registro_de_carga": 233678,
+    "4_longo_curso_e_cabotagem": 102137,
+    "5_sem_incompletos": 102137,
+    "6_sem_TA_ou_peso_nulos": 102137,
+    "7_data_de_atracacao_em_2022_2024": 101946,
+    "8a_treino_antes_do_corte": 65700,
+    "8b_teste_antes_do_corte": 36246,
+    "9a_treino_final": 65371,
+    "9b_teste_final": 36246
+  },
+  "Corte de extremos (h)": 348.4,
+  "Corte aplicado a": "somente treino",
+  "Atracações no teste acima do corte": 116,
+  "Volume final": "101,617 (65,371 treino; 36,246 teste)",
+  "TA conjunto final (mediana/média/dp/Q1/Q3/máx)": [
+    34.4,
+    49.5,
+    50.1,
+    17.7,
+    63.9,
+    2236.1
+  ],
+  "TA mediano por natureza": {
+    "Carga Conteinerizada": 18.9,
+    "Carga Geral": 25.8,
+    "Granel Líquido e Gasoso": 35.8,
+    "Granel Sólido": 57.4
+  },
+  "Instalações / berços distintos": "132 / 471",
+  "Berços sem histórico no teste": "1349 atracações (3.72%)",
+  "Cascata da referência (%)": {
+    "berço × tipo de carga": 96.03,
+    "porto": 3.59,
+    "berço": 0.25,
+    "geral": 0.14
+  },
+  "k de maior silhueta / k usado / silhueta": "4 / 4 / 0.67",
+  "Melhor modelo": "CatBoost",
+  "MAE / RMSE / R² (melhor, teste completo)": "15.55 h / 36.46 h / 0.552",
+  "MAE referência (teste completo)": "19.81 h",
+  "Redução vs. referência": "21.5%",
+  "Bootstrap vs. variantes SEM perfil": {
+    "Random Forest": "0.48 h (IC 0.39 a 0.57)",
+    "XGBoost": "0.63 h (IC 0.54 a 0.72)",
+    "Ridge": "1.92 h (IC 1.80 a 2.04)",
+    "Referência ingênua": "4.27 h (IC 4.08 a 4.45)"
+  },
+  "Diferença 1º−último ensemble (h)": 0.63,
+  "Ablação": {
+    "completo": "MAE 15.55 h",
+    "sem peso e TEU": "MAE 18.76 h",
+    "sem peso, TEU e nº de registros": "MAE 19.62 h",
+    "referência ingênua": "MAE 19.81 h"
+  },
+  "Viés médio (h)": -4.53,
+  "MAE por mês (min–máx, h)": "13.58–16.97",
+  "15 maiores instalações: % do teste": "62.5%",
+  "Tempo total (min)": 123.5
+}
