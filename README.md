@@ -1,14 +1,14 @@
 # Predição do tempo atracado de navios em portos brasileiros: análise comparativa de algoritmos de Machine Learning
-
+ 
 **Carlos Guilherme Bittencourt Lima Paranhos** e **Renata de Souza Silva**
 Bacharelado em Ciência da Computação — Centro Universitário Jorge Amado (UNIJORGE), Salvador – BA, 2026
-
+ 
 Código, dados derivados e resultados do Trabalho de Conclusão de Curso que compara Regressão Ridge, Random Forest, XGBoost e CatBoost na predição do **tempo atracado (TA)** de navios em portos brasileiros, a partir dos dados abertos do Estatístico Aquaviário da ANTAQ. Os modelos são treinados com as atracações de 2022–2023 e avaliados nas de 2024.
-
+ 
 ## Resultados
-
-Conjunto de teste: 36.246 atracações de 2024. Os valores abaixo saem de [`resultados/`](resultados/) e correspondem às Tabelas 2 e 3 do artigo.
-
+ 
+Conjunto final: 101.617 atracações, em 132 instalações e 471 berços — 65.371 no treino (2022–2023) e 36.246 no teste (2024). Os valores abaixo saem de [`resultados/`](resultados/) e correspondem às Tabelas 2 e 3 do artigo.
+ 
 | Modelo | MAE (h) | RMSE (h) | R² | Redução do MAE vs. referência |
 |---|---:|---:|---:|---:|
 | **CatBoost** | **15,55** | **36,46** | **0,552** | **21,5%** |
@@ -16,26 +16,76 @@ Conjunto de teste: 36.246 atracações de 2024. Os valores abaixo saem de [`resu
 | XGBoost | 16,18 | 37,40 | 0,529 | 18,3% |
 | Regressão Ridge | 17,47 | 39,52 | 0,474 | 11,8% |
 | Referência ingênua (mediana por berço e tipo de carga) | 19,81 | 42,39 | 0,395 | — |
-
+ 
 - A vantagem do CatBoost é estatisticamente significativa sobre todos os demais modelos (bootstrap pareado, IC 95%), mas as diferenças entre os *ensembles* são pequenas: 0,63 h entre o primeiro e o último.
-- **O ganho depende dos atributos de volume, conhecidos só ao término da operação.** Sem peso bruto e TEU, a redução sobre a referência cai para 5,3%; sem também o número de registros de carga, para 1,0%. Em uso real, o desempenho esperado fica entre 15,55 h e 18,76 h, conforme a precisão da estimativa de volume do manifesto de carga.
+- **O ganho depende dos atributos de volume, conhecidos só ao término da operação** — ver [Disponibilidade dos atributos](#disponibilidade-dos-atributos-e-origem-do-ganho) abaixo.
 - O perfil operacional obtido por K-Means (k = 4, silhueta 0,67) não trouxe ganho relevante: menos de 5 minutos por atracação.
 - Entre as 15 instalações de maior movimento, o MAE vai de 5,8 h (Porto Itapoá) a 25,8 h (Vila do Conde). O SHAP aponta o peso bruto e o berço como atributos mais influentes.
-
 ![MAE do CatBoost por instalação portuária e tipo de carga](resultados/fig_mae_porto_tipo_carga.png)
-
+ 
+## Disponibilidade dos atributos e origem do ganho
+ 
+O cenário considerado é a estimativa do TA **antes da atracação**, para apoio à programação dos berços, usando apenas a base pública da ANTAQ. O trabalho não tem acesso a informações internas dos terminais, como o manifesto de carga, e não pressupõe sua existência. Sob esse critério os atributos se dividem em dois grupos:
+ 
+| Grupo | Atributos | Disponível antes da atracação |
+|---|---|---|
+| Estruturais | instalação portuária, berço, tipo de navegação, mês, nacionalidade do armador | sim |
+| Derivados da carga movimentada | peso bruto, TEU, nº de registros de carga, natureza da carga, perfil K-Means | não — só existem ao término da operação |
+ 
+A ablação retreina os quatro modelos sem os atributos de volume, mantendo os hiperparâmetros do modelo completo. MAE no teste de 2024, com a redução sobre a referência ingênua (19,81 h) entre parênteses:
+ 
+| Modelo | Completo | Sem peso e TEU | Sem peso, TEU e nº de registros |
+|---|---:|---:|---:|
+| CatBoost | 15,55 h (21,5%) | 18,76 h (5,3%) | 19,62 h (1,0%) |
+| Random Forest | 16,03 h (19,1%) | 19,07 h (3,8%) | 20,13 h (−1,6%) |
+| XGBoost | 16,18 h (18,3%) | 19,42 h (2,0%) | 20,37 h (−2,8%) |
+| Regressão Ridge | 17,47 h (11,8%) | 19,67 h (0,7%) | 20,10 h (−1,4%) |
+ 
+Valores negativos indicam erro superior ao da referência. Das 4,27 h de vantagem do CatBoost completo, 3,21 h vêm de atributos que, na base pública, só existem após a operação. Retirado também o número de registros de carga, apenas o CatBoost ainda supera a referência, por 0,19 h. Com a informação estrutural disponível antes da atracação, os algoritmos avaliados **pouco acrescentam ao histórico operacional**.
+ 
+Mesmo a variante mais restrita mantém a natureza da carga, também derivada dos registros de carga — atributo empregado igualmente pela referência ingênua, de modo que a comparação permanece em condições equivalentes.
+ 
+> **Hipótese não verificada.** Caso o operador disponha de uma estimativa prévia de quantidade, como a do manifesto de carga, é razoável supor um desempenho intermediário entre o do modelo completo (15,55 h) e o das variantes sem volume (18,76 a 19,62 h). Essa suposição **não foi testada**: depende da existência e da precisão dessa estimativa, informação ausente da base pública e inacessível a este estudo. Os resultados deste repositório não a sustentam.
+ 
+As conclusões da ablação valem para os quatro algoritmos **na configuração avaliada**, com os hiperparâmetros ajustados sobre o modelo completo e sem nova busca nas variantes. Repetir a busca em cada variante pode alterar as magnitudes.
+ 
+## Como ler as saídas do modelo
+ 
+**Reconversão da escala logarítmica.** O alvo é `log(1 + TA)` e os modelos são ajustados com perda quadrática nessa escala, isto é, estimam a *média condicional do logaritmo*. A reconversão por `expm1` **não devolve a média condicional do TA em horas**, por efeito do viés de Jensen, e **só coincide com a mediana condicional se os resíduos em escala logarítmica forem simétricos**. Essa condição não é assumida: é verificada empiricamente em `resultados/parecer/diagnostico_mediana.csv`. No teste de 2024 o CatBoost apresentou mediana do resíduo em log de −0,02, assimetria de 0,21 e 47,6% das atracações acima do valor previsto, proporção que varia entre 43% e 53% nos decis da predição. A predição é tratada, portanto, como **aproximação da mediana condicional** — coerente com o uso do MAE como métrica principal, que é minimizada pela mediana —, e não como garantia.
+ 
+**Valores SHAP.** Os valores em `resultados/shap_importancia.csv` são contribuições aditivas **na escala logarítmica**. A coluna de média de |SHAP| é uma magnitude típica, sem sinal, e **não se converte em efeito percentual sobre o tempo atracado**. A coluna de participação indica quanto cada atributo representa da soma das importâncias, não quanto altera o TA. Para uma atracação específica, uma contribuição φ multiplica o `(1 + TA)` previsto por `exp(φ)` em relação ao valor-base do modelo. Nos atributos categóricos, as cores da figura refletem a codificação interna das categorias e **não admitem leitura de ordem**.
+ 
+Importâncias do CatBoost (média |SHAP| em log; participação na soma): peso bruto 0,333 (32,3%), berço 0,265 (25,7%), natureza da carga 0,168 (16,3%), instalação portuária 0,090 (8,8%); os demais somam 16,9%.
+ 
+## Estrutura do erro e utilidade operacional
+ 
+O MAE agregado esconde a dispersão do erro. O CatBoost apresenta viés médio de −4,53 h, isto é, **subestima** o tempo atracado, e o viés muda de sinal ao longo da distribuição:
+ 
+| TA observado | % do teste | MAE (h) | Viés (h) | Dentro de ±12 h |
+|---|---:|---:|---:|---:|
+| até 12 h | 16,7% | 4,3 | +3,5 | 94% |
+| 12–24 h | 21,2% | 5,8 | +1,9 | 90% |
+| 24–48 h | 27,9% | 10,1 | +2,9 | 70% |
+| 48–120 h | 26,4% | 18,9 | −3,2 | 42% |
+| acima de 120 h | 7,7% | 75,0 | −70,7 | 11% |
+ 
+As atracações acima de 120 h são 7,7% do teste e concentram 37,3% da soma dos erros absolutos. No conjunto, 66,3% das predições ficam dentro de ±12 h e 83,7% dentro de ±24 h, contra 59,1% e 77,3% da referência ingênua.
+ 
+O modelo é informativo para a programação de atracações curtas e médias — até 48 h, que somam 65,9% do teste, 82,5% das predições ficam dentro de ±12 h —, mas **não identifica antecipadamente as estadias longas**, justamente as de maior impacto sobre a ocupação dos berços. Para essas, uma estimativa pontual é inadequada; intervalos de previsão seriam mais úteis.
+ 
+**Sensibilidade ao corte de extremos.** O corte do quantil 99,5% (348,4 h) é aplicado só ao treino; o teste é avaliado completo. Retreinando o CatBoost com outros cortes: sem corte, o MAE sobe para 16,23 h (+0,68 h; IC 95%: 0,56 a 0,80 h); com o quantil de 99,9% (737,0 h), para 15,75 h (+0,20 h; IC 95%: 0,13 a 0,28 h); com o de 99% (272,8 h), a diferença não é significativa (−0,03 h; IC 95%: −0,08 a 0,02 h). Acima de 120 h o efeito é pequeno em qualquer configuração: o MAE varia entre 72,4 e 78,3 h. **A subestimação das atracações longas não decorre do corte**, mas da ausência, na base, de informação que permita antecipá-las.
+ 
 ## Método, em resumo
-
+ 
 - **Dados:** bases de Atracação e Carga da ANTAQ, navegações de longo curso e cabotagem. O TA, em horas, é a diferença entre a data de desatracação e a data de atracação.
-- **Atributos:** instalação portuária, berço, tipo de navegação, natureza predominante da carga, nacionalidade do armador, mês, peso bruto, TEU e nº de registros de carga (os três últimos em log).
+- **Atributos:** instalação portuária, berço, tipo de navegação, natureza predominante da carga, nacionalidade do armador, mês, peso bruto, TEU e nº de registros de carga (os três últimos em log). A disponibilidade de cada grupo no momento da previsão está em [Disponibilidade dos atributos](#disponibilidade-dos-atributos-e-origem-do-ganho).
 - **Divisão temporal:** treino em 2022–2023 e teste em 2024. O corte de extremos (quantil 99,5% do TA) é calculado e aplicado **só no treino**; o teste é avaliado completo.
 - **Referência ingênua:** mediana histórica do TA em cascata (berço × carga → berço → instalação → geral).
 - **Perfil operacional:** K-Means sobre o volume e a composição da carga, com k escolhido pela silhueta; entra como atributo adicional.
 - **Modelos:** CatBoost, Random Forest, XGBoost e Ridge, com e sem o perfil. Alvo em log(1 + TA), busca aleatória de hiperparâmetros com validação temporal (`TimeSeriesSplit`) minimizando o MAE em horas.
-- **Avaliação:** MAE, RMSE e R²; bootstrap pareado (IC 95%) entre todos os pares de modelos; ablação sem os atributos de volume; erro por instalação, natureza da carga, mês e berços sem histórico; importância por SHAP.
-
+- **Avaliação:** MAE, RMSE e R²; bootstrap pareado (IC 95%) entre todos os pares de modelos; ablação sem os atributos de volume nos quatro modelos; sensibilidade ao corte de extremos; erro por instalação, natureza da carga, faixa de duração, mês e berços sem histórico; importância por SHAP.
 ## Estrutura
-
+ 
 ```
 ├── src/tempo_atracado/
 │   ├── config.py            parâmetros do experimento (valores padrão = versão do artigo)
@@ -52,21 +102,21 @@ Conjunto de teste: 36.246 atracações de 2024. Os valores abaixo saem de [`resu
 ├── tests/                   teste de ponta a ponta com dados sintéticos
 └── dados/                   onde ficam os arquivos da ANTAQ (fora do Git)
 ```
-
+ 
 ## Dados
-
+ 
 Baixe no [Estatístico Aquaviário da ANTAQ](https://web3.antaq.gov.br/ea/sense/download.html), para 2022, 2023 e 2024, os arquivos de **Atracação** e **Carga**, e coloque os `.zip` (ou os `.txt` extraídos) em `dados/`. Detalhes em [`dados/README.md`](dados/README.md).
-
+ 
 Os dados não vão para o repositório: são públicos e somam alguns gigabytes.
-
+ 
 ## Como rodar
-
+ 
 ### No Google Colab
-
+ 
 Abra [`notebooks/executar_no_colab.ipynb`](notebooks/executar_no_colab.ipynb) no Colab, troque `SEU_USUARIO` pelo seu usuário do GitHub, envie os `.zip` da ANTAQ pela barra lateral e execute tudo. Com o Google Drive montado, resultados e modelos ficam em `MyDrive/tcc_tempo_atracado/resultados` e são reaproveitados se a sessão cair.
-
+ 
 ### Localmente
-
+ 
 ```bash
 git clone https://github.com/SEU_USUARIO/tempo-atracado-portos.git
 cd tempo-atracado-portos
@@ -75,9 +125,9 @@ pip install -e .
 # coloque os arquivos da ANTAQ em dados/
 python -m tempo_atracado
 ```
-
+ 
 Opções úteis:
-
+ 
 ```bash
 python -m tempo_atracado --help
 python -m tempo_atracado --modelos CatBoost Ridge        # treina só alguns modelos
@@ -87,20 +137,20 @@ python -m tempo_atracado --corte-no-teste                # aplica o corte de ext
 python -m tempo_atracado --xgb-nativo --sementes         # experimentos complementares
 python -m tempo_atracado --dados /outro/lugar --saida /outro/resultado
 ```
-
+ 
 Ou, em Python:
-
+ 
 ```python
 from tempo_atracado import Config, executar
 resumo = executar(Config(n_iter=15, k_fixo=None))
 ```
-
+ 
 A execução completa leva de dezenas de minutos a algumas horas, conforme a máquina; a maior parte é a busca de hiperparâmetros.
-
+ 
 ## Saídas
-
+ 
 Tudo vai para `resultados/`. O repositório já traz os resultados da execução final do trabalho, sem os modelos treinados (`.joblib`), que passam de 1 GB e podem ser regerados.
-
+ 
 | Arquivo | Conteúdo |
 |---|---|
 | `resumo_para_artigo.json` | todos os valores citados no texto (funil, métricas, bootstrap, ablação, viés…) |
@@ -110,28 +160,50 @@ Tudo vai para `resultados/`. O repositório já traz os resultados da execução
 | `tabela_resultados_teste_truncado.csv` | o mesmo, só com as atracações abaixo do corte (mostra o efeito de aplicar o corte também ao teste) |
 | `bootstrap_pareado_todos_os_pares.csv` | diferença de MAE e IC 95% entre todos os pares |
 | `ablacao_volume.csv` | melhor modelo sem peso/TEU e sem nº de registros |
+| `utilidade_operacional.csv`, `erro_por_faixa_ta.csv` | % dentro de ±6/±12/±24 h e erro por faixa de duração |
 | `mae_por_*.csv`, `mae_berco_novo.csv` | erro desagregado |
-| `shap_importancia.csv` | importância dos atributos |
+| `shap_importancia.csv` | importância dos atributos (magnitude em escala log — ver [Como ler as saídas](#como-ler-as-saídas-do-modelo)) |
 | `perfis_kmeans.csv`, `cascata_referencia.csv`, `efeito_perfil_kmeans.csv` | diagnósticos |
 | `fig_*.png` | figuras do artigo |
 | `predicoes_teste.csv` | predição de cada modelo para cada atracação de 2024 |
 | `modelo_streamlit.joblib` | melhor modelo e metadados para a aplicação de demonstração |
 | `execucao.json` | configuração e versões das bibliotecas usadas (gerado a partir desta versão do código) |
 | `modelos/` | modelos treinados (cache) |
-
+ 
+Experimentos complementares, em `resultados/parecer/`:
+ 
+| Arquivo | Conteúdo |
+|---|---|
+| `ablacao_todos_os_modelos.csv` | ablação dos atributos de volume nos quatro modelos, com IC 95% por bootstrap |
+| `sensibilidade_corte.csv` | CatBoost sem corte e com cortes nos quantis de 99%, 99,5% e 99,9% do treino |
+| `diagnostico_mediana.csv` | resíduos na escala logarítmica: mediana, assimetria e proporção de observados acima do previsto |
+| `predicoes_teste_completas.csv` | predição de cada variante para cada atracação de 2024 |
+ 
 ## Reaproveitamento de modelos
-
+ 
 Cada modelo treinado é salvo em `resultados/modelos/` com uma assinatura da configuração (anos, corte, atributos, busca, semente, k e tamanho do treino). Numa nova execução, modelos com a mesma assinatura são carregados em vez de retreinados; se algo mudar, são retreinados. Modelos sem assinatura (da primeira versão em Colab) são reaproveitados como estão.
-
+ 
 ## Reprodutibilidade
-
+ 
 A semente padrão é 42. Os resultados podem variar ligeiramente entre versões do scikit-learn, CatBoost e XGBoost; as versões usadas em cada execução ficam em `resultados/execucao.json`.
-
+ 
 ## Testes
-
+ 
 ```bash
 pip install -e ".[dev]"
 pytest
 ```
-
+ 
 O teste gera dados sintéticos no mesmo layout da ANTAQ e roda o pipeline inteiro com uma busca reduzida (1–3 min). Ele roda automaticamente no GitHub Actions a cada push.
+ 
+## Declaração de uso de inteligência artificial
+
+Os autores declaram o uso de ferramentas de Inteligência Artificial generativa na elaboração deste trabalho, nos seguintes termos.
+
+Na redação, as ferramentas foram empregadas no aprimoramento do texto, com foco na clareza, na concisão e na adequação à linguagem técnica e ao padrão de escrita acadêmica, bem como na revisão linguística e na organização da exposição dos conteúdos.
+
+No desenvolvimento do produto, as ferramentas foram empregadas na estruturação e na escrita do código do experimento e na depuração de erros de implementação. O código resultante foi revisado pelos autores executado a cada alteração do repositório, que reproduz o fluxo completo sobre dados sintéticos.
+
+A concepção do trabalho, a definição do problema de pesquisa, a seleção e a leitura das fontes, as decisões metodológicas, a interpretação dos resultados e a redação das conclusões foram realizadas pelos autores.
+
+Nenhum conteúdo foi incorporado ao trabalho sem verificação. Os autores revisaram integralmente o texto final e o código do experimento, e assumem responsabilidade plena por seu conteúdo, incluindo a exatidão das informações apresentadas, a correção das referências bibliográficas e a fidelidade das afirmações às evidências obtidas.
