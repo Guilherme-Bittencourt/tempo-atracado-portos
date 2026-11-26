@@ -2,7 +2,7 @@
 from .config import Config
 
 __all__ = ["Config", "executar"]
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 
 
 def executar(cfg=None):

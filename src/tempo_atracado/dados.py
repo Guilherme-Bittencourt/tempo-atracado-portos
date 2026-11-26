@@ -243,8 +243,8 @@ def montar_base(atr, tempos, carga):
 def filtrar_e_dividir(df, contagem, cfg):
     """Filtros, divisão temporal e corte de extremos (calculado no treino).
 
-    Devolve também o treino ANTES do corte, de que a análise de sensibilidade ao corte precisa
-    para reajustar o modelo com outros limites.
+    Retorna (treino, teste, limite do corte em h, máscara do teste abaixo do corte, treino antes do corte).
+    O treino antes do corte é usado na análise de sensibilidade ao corte.
     """
     nav_ok = {normalizar(n) for n in cfg.navegacoes}
     df = df[df["tipo_navegacao"].map(normalizar).isin(nav_ok)]
@@ -260,9 +260,9 @@ def filtrar_e_dividir(df, contagem, cfg):
     treino = df[df["ano"].isin(cfg.anos_treino)].sort_values("data_atracacao").reset_index(drop=True)
     teste = df[df["ano"] == cfg.ano_teste].sort_values("data_atracacao").reset_index(drop=True)
     contagem["8a_treino_antes_do_corte"] = len(treino)
+    treino_sem_corte = treino.copy()
     contagem["8b_teste_antes_do_corte"] = len(teste)
 
-    treino_sem_corte = treino
     ta_max_h = float(treino["ta"].quantile(cfg.ta_quantil_max)) if cfg.ta_quantil_max else None
     if ta_max_h:
         treino = treino[treino["ta"] <= ta_max_h].reset_index(drop=True)
