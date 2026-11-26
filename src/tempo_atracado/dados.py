@@ -241,7 +241,11 @@ def montar_base(atr, tempos, carga):
 
 
 def filtrar_e_dividir(df, contagem, cfg):
-    """Filtros, divisão temporal e corte de extremos (calculado no treino)."""
+    """Filtros, divisão temporal e corte de extremos (calculado no treino).
+
+    Devolve também o treino ANTES do corte, de que a análise de sensibilidade ao corte precisa
+    para reajustar o modelo com outros limites.
+    """
     nav_ok = {normalizar(n) for n in cfg.navegacoes}
     df = df[df["tipo_navegacao"].map(normalizar).isin(nav_ok)]
     contagem["4_longo_curso_e_cabotagem"] = len(df)
@@ -258,6 +262,7 @@ def filtrar_e_dividir(df, contagem, cfg):
     contagem["8a_treino_antes_do_corte"] = len(treino)
     contagem["8b_teste_antes_do_corte"] = len(teste)
 
+    treino_sem_corte = treino
     ta_max_h = float(treino["ta"].quantile(cfg.ta_quantil_max)) if cfg.ta_quantil_max else None
     if ta_max_h:
         treino = treino[treino["ta"] <= ta_max_h].reset_index(drop=True)
@@ -266,7 +271,7 @@ def filtrar_e_dividir(df, contagem, cfg):
     contagem["9a_treino_final"] = len(treino)
     contagem["9b_teste_final"] = len(teste)
     mask_trunc = (teste["ta"] <= ta_max_h).values if ta_max_h else np.ones(len(teste), bool)
-    return treino, teste, ta_max_h, mask_trunc
+    return treino, teste, ta_max_h, mask_trunc, treino_sem_corte
 
 
 def tabela_funil(contagem):

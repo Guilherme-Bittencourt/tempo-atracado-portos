@@ -43,6 +43,8 @@ class Config:
 
     # Experimentos complementares
     rodar_ablacao: bool = True
+    rodar_etapas_parecer: bool = True      # ablação em todos os modelos, sensibilidade ao corte
+                                           # e diagnóstico da reconversão (resultados/parecer/)
     rodar_xgb_nativo: bool = False         # opcional, ~10–20 min
     rodar_sementes: bool = False           # opcional, ~10–30 min
     sementes_extras: list = field(default_factory=lambda: [1, 7, 123, 2024])

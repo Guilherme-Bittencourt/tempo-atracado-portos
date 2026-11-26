@@ -61,6 +61,11 @@ def criar_modelo(nome, usa_perfil, sem=(), seed=42):
                     "modelo__reg_lambda": loguniform(0.1, 10)}
         return Pipeline([("prep", prep), ("modelo", reg)]), dist
     if nome == "CatBoost":
+        # Perda quadrática sobre log(1 + TA): o modelo estima a média condicional na escala log.
+        # A reconversão por expm1 não devolve a média condicional em horas (viés de Jensen) e só
+        # coincide com a mediana condicional se os resíduos em log forem simétricos. Por isso a
+        # predição é tratada como APROXIMAÇÃO da mediana, verificada empiricamente no diagnóstico
+        # da reconversão (resultados/parecer/diagnostico_mediana.csv).
         from catboost import CatBoostRegressor
         est = CatBoostRegressor(loss_function="RMSE", verbose=0, random_seed=seed, thread_count=-1,
                                 allow_writing_files=False)
@@ -75,6 +80,10 @@ def para_log(y):
 
 
 def para_horas(z):
+    """Reconverte a predição da escala log(1 + TA) para horas.
+
+    Aproxima a mediana condicional; não a garante (ver comentário em criar_modelo).
+    """
     return np.clip(np.expm1(z), 0, None)
 
 

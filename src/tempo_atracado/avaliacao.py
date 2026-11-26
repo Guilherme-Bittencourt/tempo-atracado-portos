@@ -1,4 +1,4 @@
-"""Tabelas de resultado, bootstrap pareado e erro desagregado."""
+"""Tabelas de resultado, bootstrap pareado, erro desagregado e utilidade operacional."""
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -38,6 +38,86 @@ def bootstrap_pareado(y, predicoes, rotulos, n_bootstrap, seed):
                                "MAE(B) − MAE(A) (h)": float(E[:, j].mean() - E[:, i].mean()),
                                "IC95% inf": lo, "IC95% sup": hi, "Significativa": bool(lo > 0 or hi < 0)})
     return pd.DataFrame(linhas)
+
+
+def bootstrap_dif(erro_a, erro_b, n_bootstrap, seed):
+    """Diferença MAE(b) − MAE(a) e IC95%, reamostrando as mesmas atracações do teste."""
+    ea, eb = np.asarray(erro_a, dtype=np.float32), np.asarray(erro_b, dtype=np.float32)
+    rng = np.random.default_rng(seed)
+    difs = np.empty(n_bootstrap)
+    lote = max(1, int(2e7 // max(len(ea), 1)))            # limita a memória por lote
+    for ini in range(0, n_bootstrap, lote):
+        fim = min(n_bootstrap, ini + lote)
+        idx = rng.integers(0, len(ea), size=(fim - ini, len(ea)))
+        difs[ini:fim] = eb[idx].mean(1) - ea[idx].mean(1)
+    lo, hi = np.percentile(difs, [2.5, 97.5])
+    return float(eb.mean() - ea.mean()), float(lo), float(hi)
+
+
+# ------------------------------------------------------------------ Utilidade operacional
+FAIXAS_TA = [0, 12, 24, 48, 120, np.inf]
+ROTULOS_FAIXAS = ["até 12 h", "12–24 h", "24–48 h", "48–120 h", "acima de 120 h"]
+
+
+def utilidade(y, p):
+    """Proporção de predições dentro de tolerâncias fixas, além do erro médio e mediano."""
+    e = np.abs(y - p)
+    return {"MAE": float(e.mean()), "MedAE (h)": float(np.median(e)),
+            "% dentro de ±6 h": 100 * float((e <= 6).mean()),
+            "% dentro de ±12 h": 100 * float((e <= 12).mean()),
+            "% dentro de ±24 h": 100 * float((e <= 24).mean()),
+            "Erro relativo mediano (%)": 100 * float(np.median(e / y)),
+            "% observado acima do previsto": 100 * float((y > p).mean())}
+
+
+def erro_por_faixa(y, pred, pred_ref):
+    """Erro e viés do modelo por faixa de duração observada, com a referência ao lado."""
+    e, e_ref = np.abs(y - pred), np.abs(y - pred_ref)
+    g = pd.DataFrame({"faixa": pd.cut(y, FAIXAS_TA, labels=ROTULOS_FAIXAS, right=True),
+                      "e": e, "vies": pred - y, "e_ref": e_ref})
+    t = g.groupby("faixa", observed=True).agg(
+        n=("e", "size"), MAE=("e", "mean"), vies_medio_h=("vies", "mean"), MAE_referencia=("e_ref", "mean"),
+        pct_dentro_12h=("e", lambda s: 100 * (s <= 12).mean()),
+        pct_dentro_24h=("e", lambda s: 100 * (s <= 24).mean()))
+    t["pct_do_teste"] = 100 * t["n"] / len(y)
+    t["pct_da_soma_dos_erros"] = 100 * g.groupby("faixa", observed=True)["e"].sum() / e.sum()
+    return t
+
+
+def resumo_erro(y, p):
+    """Métricas usadas para comparar configurações de corte de extremos."""
+    from .modelos import metricas          # import tardio: evita ciclo de importação
+
+    e = np.abs(y - p)
+    longo = y > 120
+    return {**metricas(y, p),
+            "MedAE (h)": float(np.median(e)),
+            "% dentro de ±12 h": 100 * float((e <= 12).mean()),
+            "% dentro de ±24 h": 100 * float((e <= 24).mean()),
+            "MAE TA ≤ 48 h": float(e[y <= 48].mean()),
+            "MAE TA > 120 h": float(e[longo].mean()) if longo.any() else float("nan"),
+            "Viés TA > 120 h": float((p - y)[longo].mean()) if longo.any() else float("nan"),
+            "Maior previsão (h)": float(p.max())}
+
+
+def diagnostico_mediana(y, z_pred):
+    """Resíduos na escala logarítmica, que sustentam (ou não) a leitura da predição como mediana.
+
+    `z_pred` é a predição na escala log(1 + TA), antes da reconversão para horas. Usar o valor já
+    reconvertido reintroduziria o truncamento em zero de `para_horas` e distorceria o resíduo.
+    """
+    from scipy.stats import skew
+
+    lr = np.log1p(y) - np.asarray(z_pred, dtype=float)
+    acima = pd.Series(lr > 0)
+    por_decil = acima.groupby(pd.qcut(np.asarray(z_pred, dtype=float), 10, duplicates="drop"),
+                              observed=True).mean()
+    return {"mediana do resíduo (log)": float(np.median(lr)),
+            "média do resíduo (log)": float(np.mean(lr)),
+            "assimetria do resíduo (log)": float(skew(lr)),
+            "% observado acima do previsto": 100 * float(acima.mean()),
+            "% acima do previsto, mín. entre decis da predição": 100 * float(por_decil.min()),
+            "% acima do previsto, máx. entre decis da predição": 100 * float(por_decil.max())}
 
 
 def mae_por(av, col):

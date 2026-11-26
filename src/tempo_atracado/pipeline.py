@@ -51,7 +51,7 @@ def executar(cfg: Config | None = None) -> dict:
 
     # ------------------------------------------------------------------ 4. Filtros e divisão
     crono.etapa("4. Filtros e divisão temporal")
-    treino, teste, ta_max_h, mask_trunc = dados.filtrar_e_dividir(df, contagem, cfg)
+    treino, teste, ta_max_h, mask_trunc, treino_sem_corte = dados.filtrar_e_dividir(df, contagem, cfg)
     del df
     funil = dados.tabela_funil(contagem)
     saida.csv(funil, "funil_preparacao.csv")
@@ -273,6 +273,22 @@ def executar(cfg: Config | None = None) -> dict:
     pd.DataFrame({"id_atracacao": teste["id_atracacao"], "ta": y_te, **predicoes}) \
         .to_csv(saida.caminho("predicoes_teste.csv"), index=False)
 
+    # ------------------------------------------------------------------ 10b. Utilidade operacional
+    crono.etapa("10b. Utilidade operacional do erro")
+    usados = ["Referência ingênua"] + [r for r in tab["Rótulo"] if r != "Referência ingênua" and "perfil" not in r]
+    usados += [k for k in predicoes if k.startswith(f"{nome_melhor} (sem")]
+    tab_util = pd.DataFrame({u: av_.utilidade(y_te, predicoes[u]) for u in usados}).T
+    saida.csv(tab_util, "utilidade_operacional.csv")
+    mostrar(tab_util.round(2))
+
+    por_faixa = av_.erro_por_faixa(y_te, predicoes[melhor], pred_ref)
+    saida.csv(por_faixa, "erro_por_faixa_ta.csv")
+    print(f"Erro do {melhor} por faixa de TA observado:")
+    mostrar(por_faixa.round(2))
+    print(f"Maior previsão do {melhor}: {predicoes[melhor].max():.1f} h | "
+          f"previsões > 120 h: {100 * (predicoes[melhor] > 120).mean():.1f}% | "
+          f"observados > 120 h: {100 * (y_te > 120).mean():.1f}%")
+
     # ------------------------------------------------------------------ 11. SHAP
     crono.etapa("11. SHAP")
     try:
@@ -287,6 +303,51 @@ def executar(cfg: Config | None = None) -> dict:
     except Exception:
         print("SHAP falhou (o resto dos resultados está salvo):")
         traceback.print_exc()
+
+    # --------------------------------------------- 11b–11d. Experimentos pedidos no parecer
+    diag_mediana, tab_abl_todos, tab_corte = None, None, None
+    if cfg.rodar_etapas_parecer:
+        os.makedirs(os.path.join(cfg.dir_saida, "parecer"), exist_ok=True)
+
+        crono.etapa("11b. Diagnóstico da reconversão log → horas")
+        try:
+            # Predição na escala log, antes de para_horas: usar o valor já reconvertido
+            # reintroduziria o truncamento em zero e distorceria o resíduo.
+            z_pred = modelo_melhor.predict(mdl.matriz(teste, usa_perfil_melhor))
+            diag_mediana = av_.diagnostico_mediana(y_te, z_pred)
+            pd.Series(diag_mediana).to_csv(saida.caminho("parecer/diagnostico_mediana.csv"))
+            for k, v in diag_mediana.items():
+                print(f"{k:55s}: {v:.3f}")
+        except Exception:
+            print("Diagnóstico da reconversão falhou:")
+            traceback.print_exc()
+
+        crono.etapa("11c. Ablação dos atributos de volume em todos os modelos")
+        try:
+            tab_abl_todos = _ablacao_todos_os_modelos(cfg, treino, teste, y_te, pred_ref, mae_ref,
+                                                      predicoes, salvos, k_usado, nome_melhor,
+                                                      usa_perfil_melhor, crono)
+            saida.csv(tab_abl_todos, "parecer/ablacao_todos_os_modelos.csv", index=False)
+            mostrar(tab_abl_todos.round(3))
+            print("Redução do MAE vs. referência (%):")
+            mostrar(tab_abl_todos.pivot(index="Modelo", columns="Variante",
+                                        values="Redução vs. referência (%)").round(1))
+        except Exception:
+            print("Ablação em todos os modelos falhou:")
+            traceback.print_exc()
+
+        crono.etapa("11d. Sensibilidade ao corte de extremos no treino")
+        try:
+            tab_corte = _sensibilidade_corte(cfg, treino_sem_corte, teste, y_te, mae_ref,
+                                             predicoes, salvos, k_usado, nome_melhor, crono)
+            saida.csv(tab_corte, "parecer/sensibilidade_corte.csv", index=False)
+            mostrar(tab_corte.round(3))
+        except Exception:
+            print("Sensibilidade ao corte falhou:")
+            traceback.print_exc()
+
+        pd.DataFrame({"id_atracacao": teste["id_atracacao"], "ta": y_te, **predicoes}) \
+            .to_csv(saida.caminho("parecer/predicoes_teste_completas.csv"), index=False)
 
     # ------------------------------------------------------------------ 12. Exportação para o app
     crono.etapa("12. Exportação")
@@ -343,6 +404,21 @@ def executar(cfg: Config | None = None) -> dict:
                                                          - sem_perfil.loc[ensembles, "MAE"].min()), 2)
                                              if len(ensembles) > 1 else None),
         "Ablação": {r["Variante"]: f"MAE {r['MAE']:.2f} h" for r in ablacao} if ablacao else "não rodada",
+        "Ablação em todos os modelos (redução vs. referência, %)": (
+            {f"{r['Modelo']} — {r['Variante']}": round(r["Redução vs. referência (%)"], 1)
+             for _, r in tab_abl_todos.iterrows()} if tab_abl_todos is not None else "não rodada"),
+        "Sensibilidade ao corte (ΔMAE vs. corte principal, h)": (
+            {r["Corte"]: f"{r['ΔMAE vs. corte principal (h)']:+.2f} (IC {r['IC95% inf']:.2f} a {r['IC95% sup']:.2f})"
+             for _, r in tab_corte.iterrows()} if tab_corte is not None else "não rodada"),
+        "Diagnóstico da reconversão (resíduos em log)": (
+            {k: round(v, 3) for k, v in diag_mediana.items()} if diag_mediana else "não rodado"),
+        "Utilidade operacional do melhor modelo": {
+            "% dentro de ±12 h": round(float(tab_util.loc[melhor, "% dentro de ±12 h"]), 1),
+            "% dentro de ±24 h": round(float(tab_util.loc[melhor, "% dentro de ±24 h"]), 1),
+            "MedAE (h)": round(float(tab_util.loc[melhor, "MedAE (h)"]), 2)},
+        "Erro por faixa de TA (MAE h / viés h / % do teste)": {
+            str(f): [round(r["MAE"], 1), round(r["vies_medio_h"], 1), round(r["pct_do_teste"], 1)]
+            for f, r in por_faixa.iterrows()},
         "Viés médio (h)": round(vies, 2),
         "MAE por mês (min–máx, h)": f"{por_mes['MAE'].min():.2f}–{por_mes['MAE'].max():.2f}",
         "15 maiores instalações: % do teste": f"{top15_share:.1f}%",
@@ -394,6 +470,102 @@ def _xgb_nativo(cfg, treino, teste, y_te, predicoes, k_usado):
     p = mdl.para_horas(salvo["modelo"].predict(matriz_cat(teste)))
     predicoes["XGBoost (categóricas nativas)"] = p
     return {"Experimento": "XGBoost categóricas nativas", **mdl.metricas(y_te, p)}
+
+
+def _ablacao_todos_os_modelos(cfg, treino, teste, y_te, pred_ref, mae_ref, predicoes, salvos,
+                              k_usado, nome_melhor, usa_perfil_melhor, crono):
+    """Repete a ablação dos atributos de volume nos quatro algoritmos, com IC por bootstrap.
+
+    As variantes usam os hiperparâmetros do modelo completo, sem nova busca: o resultado vale
+    para a configuração avaliada. Todas rodam sem o perfil K-Means, que também deriva dos
+    registros de carga.
+    """
+    variantes = {"completo": (),
+                 "sem peso e TEU": ("log_peso", "log_teu"),
+                 "sem peso, TEU e nº de registros": ("log_peso", "log_teu", "log_registros_carga")}
+    erro_ref = np.abs(y_te - pred_ref)
+    linhas = []
+    for nome in cfg.modelos:
+        params = salvos[nome]["params"]
+        erro_completo = np.abs(y_te - predicoes[nome])
+        for var, sem in variantes.items():
+            chave = f"{nome} ({var})"
+            if var == "completo":
+                p = predicoes[nome]
+            elif chave in predicoes and not usa_perfil_melhor and nome == nome_melhor:
+                p = predicoes[chave]            # já treinada na etapa 8b, mesma configuração
+            else:
+                rot = f"ablacao todos {nome} {var}"
+                arq = mdl.arquivo_modelo(cfg.dir_modelos, rot)
+                ass = mdl.assinatura(cfg, k_usado, len(treino), extra=rot)
+                salvo = mdl.carregar_se_valido(arq, ass)
+                if salvo is None:
+                    print(f"[{nome} | {var}] treinando (hiperparâmetros do modelo completo)...", flush=True)
+                    modelo, _ = mdl.criar_modelo(nome, False, sem=sem, seed=cfg.seed)
+                    modelo.set_params(**params)
+                    modelo.fit(mdl.matriz(treino, False, sem), mdl.para_log(treino["ta"].values),
+                               **mdl.fit_kwargs(nome, False))
+                    salvo = {"modelo": modelo, "params": params, "cv_mae": np.nan, "t_busca": 0,
+                             "t_fit": 0, "assinatura": ass}
+                    joblib.dump(salvo, arq)
+                    print(f"[{nome} | {var}] pronto   [{crono.minutos():.1f} min]", flush=True)
+                p = mdl.para_horas(salvo["modelo"].predict(mdl.matriz(teste, False, sem)))
+            predicoes[chave] = p
+            e = np.abs(y_te - p)
+            d_ref, lo_ref, hi_ref = av_.bootstrap_dif(e, erro_ref, cfg.n_bootstrap, cfg.seed)
+            d_comp, lo_comp, hi_comp = av_.bootstrap_dif(erro_completo, e, cfg.n_bootstrap, cfg.seed)
+            linhas.append({"Modelo": nome, "Variante": var, **mdl.metricas(y_te, p),
+                           "Redução vs. referência (%)": 100 * (1 - e.mean() / mae_ref),
+                           "Vantagem sobre a referência (h)": d_ref,
+                           "IC95% inf (ref)": lo_ref, "IC95% sup (ref)": hi_ref,
+                           "Aumento vs. completo (h)": d_comp,
+                           "IC95% inf (comp)": lo_comp, "IC95% sup (comp)": hi_comp})
+    return pd.DataFrame(linhas)
+
+
+def _sensibilidade_corte(cfg, treino_sem_corte, teste, y_te, mae_ref, predicoes, salvos,
+                         k_usado, nome_melhor, crono):
+    """Reajusta o melhor algoritmo sem corte e com outros quantis, para isolar o efeito do corte.
+
+    A comparação é feita contra a variante sem perfil do melhor algoritmo, que é a configuração
+    reajustada aqui.
+    """
+    params = salvos[nome_melhor]["params"]
+    base = predicoes[nome_melhor]
+    linhas = []
+    for q in [None, 0.99, cfg.ta_quantil_max, 0.999]:
+        if q is None:
+            rot, tr, lim = "sem corte", treino_sem_corte, float("nan")
+        else:
+            rot = f"quantil {100 * q:.1f}%"
+            lim = float(treino_sem_corte["ta"].quantile(q))
+            tr = treino_sem_corte[treino_sem_corte["ta"] <= lim].reset_index(drop=True)
+        if q == cfg.ta_quantil_max:
+            p = base                      # é o modelo principal, não precisa reajustar
+        else:
+            chave_cache = f"corte {nome_melhor} {rot}"
+            arq = mdl.arquivo_modelo(cfg.dir_modelos, chave_cache)
+            ass = mdl.assinatura(cfg, k_usado, len(tr), extra=chave_cache)
+            salvo = mdl.carregar_se_valido(arq, ass)
+            if salvo is None:
+                print(f"[{rot}] treinando ({len(tr):,} atracações)...", flush=True)
+                modelo, _ = mdl.criar_modelo(nome_melhor, False, seed=cfg.seed)
+                modelo.set_params(**params)
+                modelo.fit(mdl.matriz(tr, False), mdl.para_log(tr["ta"].values),
+                           **mdl.fit_kwargs(nome_melhor, False))
+                salvo = {"modelo": modelo, "params": params, "cv_mae": np.nan, "t_busca": 0,
+                         "t_fit": 0, "assinatura": ass}
+                joblib.dump(salvo, arq)
+                print(f"[{rot}] pronto   [{crono.minutos():.1f} min]", flush=True)
+            p = mdl.para_horas(salvo["modelo"].predict(mdl.matriz(teste, False)))
+        predicoes[f"{nome_melhor} (corte: {rot})"] = p
+        dif, lo, hi = av_.bootstrap_dif(np.abs(y_te - base), np.abs(y_te - p), cfg.n_bootstrap, cfg.seed)
+        linhas.append({"Corte": rot, "Limite (h)": lim, "n treino": len(tr),
+                       "Removidos do treino": len(treino_sem_corte) - len(tr),
+                       **av_.resumo_erro(y_te, p),
+                       "Redução vs. referência (%)": 100 * (1 - np.abs(y_te - p).mean() / mae_ref),
+                       "ΔMAE vs. corte principal (h)": dif, "IC95% inf": lo, "IC95% sup": hi})
+    return pd.DataFrame(linhas)
 
 
 def _estabilidade_sementes(cfg, tab, salvos, treino, teste, y_te, saida):

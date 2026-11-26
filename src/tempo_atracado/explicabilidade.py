@@ -1,4 +1,9 @@
-"""Importância dos atributos por valores SHAP."""
+"""Importância dos atributos por valores SHAP.
+
+Os valores são contribuições aditivas na escala logarítmica, em que o modelo foi treinado.
+Nos atributos categóricos as cores do beeswarm refletem a codificação interna das categorias
+e não admitem leitura de ordem.
+"""
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -44,9 +49,13 @@ def calcular_shap(modelo, nome_modelo, usa_perfil, teste, treino, cfg, armador_f
 
     traduz = nomes_pt(armador_fonte)
     nomes = [traduz.get(c, c) for c in X_show.columns]
+    # A média de |SHAP| é a magnitude típica da contribuição na escala logarítmica, sem sinal, e
+    # NÃO se converte em efeito percentual sobre o TA. Para uma atracação específica, uma
+    # contribuição phi multiplica o (1 + TA) previsto por exp(phi) em relação ao valor-base do
+    # modelo; a média dos valores absolutos não admite essa leitura. A segunda coluna indica
+    # quanto cada atributo representa da soma das importâncias, não quanto altera o TA.
     imp = pd.Series(np.abs(sv).mean(0), index=nomes).sort_values(ascending=False)
     tab = imp.rename("média |SHAP| (log)").to_frame()
-    tab["efeito proporcional médio (%) = exp(média|SHAP|) − 1"] = 100 * (np.exp(tab.iloc[:, 0]) - 1)
     tab["participação na soma (%) — soma 100"] = 100 * tab.iloc[:, 0] / tab.iloc[:, 0].sum()
 
     shap.summary_plot(sv, X_show.values, feature_names=nomes, max_display=15, show=False)
