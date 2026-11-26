@@ -148,6 +148,20 @@ resumo = executar(Config(n_iter=15, k_fixo=None))
  
 A execução completa leva de dezenas de minutos a algumas horas, conforme a máquina; a maior parte é a busca de hiperparâmetros.
 
+### Teste rápido, sem os dados da ANTAQ
+
+Para conferir que o código roda sem baixar os arquivos da ANTAQ (alguns gigabytes), gere dados sintéticos no mesmo formato e execute o pipeline com uma busca reduzida, gravando numa pasta separada para não sobrescrever os resultados do trabalho:
+
+```bash
+pip install -e .
+python tests/dados_sinteticos.py              # cria dados_sinteticos/ com os .zip no layout da ANTAQ
+python -m tempo_atracado --dados dados_sinteticos --saida resultados_teste --n-iter 2 --n-bootstrap 50 --n-shap 200
+```
+
+Leva de 1 a 2 minutos. Os números obtidos não têm significado: servem apenas para verificar a execução de todas as etapas. Para ver o protótipo com esse modelo de teste: `MODELO_TA=resultados_teste/modelo_streamlit.joblib streamlit run app/app.py`.
+
+> **Atenção:** sem `--saida`, os resultados vão para `resultados/` e substituem os da execução final do trabalho que estão versionados no repositório.
+
 ## Protótipo de apoio à decisão
 
 Interface em Streamlit que aplica o melhor modelo a uma atracação programada, sempre ao lado da referência ingênua (mediana histórica por berço e tipo de carga), para que o ganho do modelo fique explícito.
@@ -157,7 +171,9 @@ pip install -e ".[app]"
 streamlit run app/app.py
 ```
 
-O protótipo lê `resultados/modelo_streamlit.joblib`, gerado na última etapa do experimento (no Colab, pelo notebook `gerar_modelo_no_colab.ipynb`). Coloque o arquivo em `resultados/` ou aponte a variável de ambiente `MODELO_TA` para ele. As demais abas usam as tabelas de `resultados/`.
+O protótipo lê `resultados/modelo_streamlit.joblib`, gerado na última etapa do experimento (no Colab, pelo notebook `gerar_modelo_no_colab.ipynb`). Esse arquivo **não está versionado** (o `.gitignore` exclui os `.joblib`): gere-o pelo experimento ou copie-o de uma execução anterior para `resultados/`, ou aponte a variável de ambiente `MODELO_TA` para ele. As demais abas usam as tabelas de `resultados/`.
+
+O modelo é salvo com o scikit-learn da execução que o gerou (no Colab da execução final, 1.6.1). Rode o protótipo com a mesma versão (`pip install scikit-learn==1.6.1`) para evitar avisos de incompatibilidade ao carregar o arquivo.
 
 | Aba | Conteúdo |
 |---|---|
@@ -225,7 +241,7 @@ Os autores declaram o uso de ferramentas de Inteligência Artificial generativa 
 
 Na redação, as ferramentas foram empregadas no aprimoramento do texto, com foco na clareza, na concisão e na adequação à linguagem técnica e ao padrão de escrita acadêmica, bem como na revisão linguística e na organização da exposição dos conteúdos.
 
-No desenvolvimento do produto, as ferramentas foram empregadas na estruturação e na escrita do código do experimento e na depuração de erros de implementação. O código resultante foi revisado pelos autores executado a cada alteração do repositório, que reproduz o fluxo completo sobre dados sintéticos.
+No desenvolvimento do produto, as ferramentas foram empregadas na estruturação e na escrita do código do experimento e na depuração de erros de implementação. O código resultante foi revisado pelos autores e validado por um teste automatizado, executado a cada alteração do repositório, que reproduz o fluxo completo sobre dados sintéticos.
 
 A concepção do trabalho, a definição do problema de pesquisa, a seleção e a leitura das fontes, as decisões metodológicas, a interpretação dos resultados e a redação das conclusões foram realizadas pelos autores.
 
