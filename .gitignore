@@ -5,9 +5,14 @@ dados/*
 *.txt
 !requirements.txt
 
+# Saídas do teste rápido com dados sintéticos
+dados_sinteticos/
+resultados_teste/
+
 # Modelos treinados (centenas de MB; os resultados em resultados/ são versionados)
 resultados/modelos/
 *.joblib
+!resultados/modelo_streamlit.joblib
 catboost_info/
 
 # Python
