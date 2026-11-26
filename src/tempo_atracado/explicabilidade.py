@@ -1,9 +1,4 @@
-"""Importância dos atributos por valores SHAP.
-
-Os valores são contribuições aditivas na escala logarítmica, em que o modelo foi treinado.
-Nos atributos categóricos as cores do beeswarm refletem a codificação interna das categorias
-e não admitem leitura de ordem.
-"""
+"""Importância dos atributos por valores SHAP."""
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -21,7 +16,7 @@ def nomes_pt(armador_fonte):
 
 
 def calcular_shap(modelo, nome_modelo, usa_perfil, teste, treino, cfg, armador_fonte):
-    """Retorna (tabela de importância, figura beeswarm)."""
+    """Retorna (tabela de importância, figura beeswarm), calculadas sobre uma amostra de n_shap atracações do teste."""
     import shap
 
     amostra = teste.sample(min(cfg.n_shap, len(teste)), random_state=cfg.seed)
@@ -49,11 +44,10 @@ def calcular_shap(modelo, nome_modelo, usa_perfil, teste, treino, cfg, armador_f
 
     traduz = nomes_pt(armador_fonte)
     nomes = [traduz.get(c, c) for c in X_show.columns]
-    # A média de |SHAP| é a magnitude típica da contribuição na escala logarítmica, sem sinal, e
-    # NÃO se converte em efeito percentual sobre o TA. Para uma atracação específica, uma
-    # contribuição phi multiplica o (1 + TA) previsto por exp(phi) em relação ao valor-base do
-    # modelo; a média dos valores absolutos não admite essa leitura. A segunda coluna indica
-    # quanto cada atributo representa da soma das importâncias, não quanto altera o TA.
+    # Média de |SHAP| na escala log: magnitude típica da contribuição, sem sinal. Não se converte em
+    # efeito percentual sobre o TA. Para uma atracação específica, uma contribuição phi multiplica
+    # (1 + TA) previsto por exp(phi) em relação ao valor-base do modelo. A participação indica quanto
+    # cada atributo representa da soma das importâncias, não quanto altera o TA.
     imp = pd.Series(np.abs(sv).mean(0), index=nomes).sort_values(ascending=False)
     tab = imp.rename("média |SHAP| (log)").to_frame()
     tab["participação na soma (%) — soma 100"] = 100 * tab.iloc[:, 0] / tab.iloc[:, 0].sum()

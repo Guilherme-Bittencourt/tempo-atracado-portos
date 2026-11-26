@@ -42,9 +42,9 @@ class Config:
     seed: int = 42
 
     # Experimentos complementares
-    rodar_ablacao: bool = True
-    rodar_etapas_parecer: bool = True      # ablação em todos os modelos, sensibilidade ao corte
-                                           # e diagnóstico da reconversão (resultados/parecer/)
+    rodar_ablacao: bool = True             # ablação dos atributos de volume nos modelos treinados
+    rodar_sensibilidade_corte: bool = True # retreina o melhor modelo com outros cortes de extremos
+    cortes_sensibilidade: list = field(default_factory=lambda: [None, 0.99, 0.995, 0.999])  # None = sem corte
     rodar_xgb_nativo: bool = False         # opcional, ~10–20 min
     rodar_sementes: bool = False           # opcional, ~10–30 min
     sementes_extras: list = field(default_factory=lambda: [1, 7, 123, 2024])

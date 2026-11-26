@@ -24,9 +24,8 @@ def _args(argv=None):
     p.add_argument("--corte-no-teste", action="store_true",
                    help="aplica o corte de extremos também ao teste (comportamento da versão original)")
     p.add_argument("--sem-ablacao", action="store_true", help="não roda a ablação dos atributos de volume")
-    p.add_argument("--sem-etapas-parecer", action="store_true",
-                   help="não roda a ablação em todos os modelos, a sensibilidade ao corte "
-                        "nem o diagnóstico da reconversão (saídas em resultados/parecer)")
+    p.add_argument("--sem-sensibilidade", action="store_true",
+                   help="não roda a sensibilidade ao corte de extremos")
     p.add_argument("--xgb-nativo", action="store_true", help="roda o XGBoost com categóricas nativas")
     p.add_argument("--sementes", action="store_true", help="roda o teste de estabilidade entre sementes")
     p.add_argument("--seed", type=int, default=42)
@@ -41,7 +40,7 @@ def main(argv=None):
     cfg = Config(dir_dados=a.dados, dir_saida=a.saida, modelos=a.modelos, n_iter=a.n_iter,
                  n_bootstrap=a.n_bootstrap, n_shap=a.n_shap, k_fixo=a.k, origem_ta=a.origem_ta,
                  corte_no_teste=a.corte_no_teste,
-                 rodar_ablacao=not a.sem_ablacao, rodar_etapas_parecer=not a.sem_etapas_parecer,
+                 rodar_ablacao=not a.sem_ablacao, rodar_sensibilidade_corte=not a.sem_sensibilidade,
                  rodar_xgb_nativo=a.xgb_nativo, rodar_sementes=a.sementes,
                  seed=a.seed)
     executar(cfg)
