@@ -97,7 +97,8 @@ O modelo é informativo para a programação de atracações curtas e médias �
 │   ├── explicabilidade.py   SHAP
 │   ├── pipeline.py          orquestra as etapas e gera o resumo para o artigo
 │   └── __main__.py          linha de comando
-├── notebooks/executar_no_colab.ipynb
+├── app/                     protótipo em Streamlit (app.py = interface, nucleo.py = predição)
+├── notebooks/               executar_no_colab.ipynb (experimento) e gerar_modelo_no_colab.ipynb (modelo do protótipo)
 ├── resultados/              tabelas, figuras e resumo da execução final do trabalho
 ├── tests/                   teste de ponta a ponta com dados sintéticos
 └── dados/                   onde ficam os arquivos da ANTAQ (fora do Git)
@@ -146,6 +147,28 @@ resumo = executar(Config(n_iter=15, k_fixo=None))
 ```
  
 A execução completa leva de dezenas de minutos a algumas horas, conforme a máquina; a maior parte é a busca de hiperparâmetros.
+
+## Protótipo de apoio à decisão
+
+Interface em Streamlit que aplica o melhor modelo a uma atracação programada, sempre ao lado da referência ingênua (mediana histórica por berço e tipo de carga), para que o ganho do modelo fique explícito.
+
+```bash
+pip install -e ".[app]"
+streamlit run app/app.py
+```
+
+O protótipo lê `resultados/modelo_streamlit.joblib`, gerado na última etapa do experimento (no Colab, pelo notebook `gerar_modelo_no_colab.ipynb`). Coloque o arquivo em `resultados/` ou aponte a variável de ambiente `MODELO_TA` para ele. As demais abas usam as tabelas de `resultados/`.
+
+| Aba | Conteúdo |
+|---|---|
+| Predição | formulário com instalação, berço, tipo de navegação, natureza da carga, armador, mês e **estimativa prévia** de volume; devolve o TA previsto, a referência ingênua, o MAE da instalação no teste e o que aconteceu em 2024 com as atracações que receberam previsões parecidas (faixa de 80% dos tempos observados), com alerta quando essa faixa tem muitas estadias acima de 120 h |
+| Lote (CSV) | aplica o modelo a uma programação de atracações e devolve as estimativas em CSV |
+| Desempenho | métricas no teste de 2024, comparação entre algoritmos, ablação dos atributos de volume nos quatro modelos, erro por duração da atracação, importância por SHAP e erro por instalação |
+| Sobre o modelo | cenário de uso, método, atributos e limitações |
+
+Os valores de desempenho exibidos foram medidos com o volume **realizado**. Com uma estimativa prévia de volume, o desempenho não foi verificado (ver [Disponibilidade dos atributos](#disponibilidade-dos-atributos-e-origem-do-ganho)).
+
+O protótipo não retreina nada: é apenas a camada de uso do modelo já avaliado. A pasta `app/` não depende de `src/tempo_atracado`, então o `.joblib`, a pasta `resultados/` e os dois arquivos do app bastam para hospedá-lo (Streamlit Community Cloud, por exemplo).
  
 ## Saídas
  
@@ -166,7 +189,7 @@ Tudo vai para `resultados/`. O repositório já traz os resultados da execução
 | `perfis_kmeans.csv`, `cascata_referencia.csv`, `efeito_perfil_kmeans.csv` | diagnósticos |
 | `fig_*.png` | figuras do artigo |
 | `predicoes_teste.csv` | predição de cada modelo para cada atracação de 2024 |
-| `modelo_streamlit.joblib` | melhor modelo e metadados para a aplicação de demonstração |
+| `modelo_streamlit.joblib` | melhor modelo e metadados para o [protótipo](#protótipo-de-apoio-à-decisão) |
 | `execucao.json` | configuração e versões das bibliotecas usadas (gerado a partir desta versão do código) |
 | `modelos/` | modelos treinados (cache) |
  
@@ -194,7 +217,7 @@ pip install -e ".[dev]"
 pytest
 ```
  
-O teste gera dados sintéticos no mesmo layout da ANTAQ e roda o pipeline inteiro com uma busca reduzida (1–3 min). Ele roda automaticamente no GitHub Actions a cada push.
+O teste gera dados sintéticos no mesmo layout da ANTAQ, roda o pipeline inteiro com uma busca reduzida e verifica o núcleo do protótipo com o modelo exportado (1–3 min). Ele roda automaticamente no GitHub Actions a cada push.
  
 ## Declaração de uso de inteligência artificial
 

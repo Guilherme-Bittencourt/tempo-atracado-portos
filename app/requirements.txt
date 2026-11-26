@@ -1,0 +1,8 @@
+# Dependências do protótipo (além das do experimento, em requirements.txt na raiz)
+streamlit>=1.50
+pandas>=2.0
+numpy>=1.24
+joblib>=1.3
+scikit-learn>=1.4,<1.11
+catboost>=1.2        # necessário só se o melhor modelo exportado for o CatBoost
+xgboost>=2.0         # necessário só se o melhor modelo exportado for o XGBoost
