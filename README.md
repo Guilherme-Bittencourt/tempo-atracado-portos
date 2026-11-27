@@ -106,7 +106,7 @@ O modelo é informativo para a programação de atracações curtas e médias �
  
 ## Dados
  
-Baixe no [Estatístico Aquaviário da ANTAQ](https://web3.antaq.gov.br/ea/sense/download.html), para 2022, 2023 e 2024, os arquivos de **Atracação** e **Carga**, e coloque os `.zip` (ou os `.txt` extraídos) em `dados/`. Detalhes em [`dados/README.md`](dados/README.md).
+Os arquivos de **Atracação** e **Carga** de 2022, 2023 e 2024 usados no trabalho (base de dados do Estatístico Aquaviário da ANTAQ) estão na [Release v1.0](../../releases) do repositório, já que o endereço original do painel (`web3.antaq.gov.br`) saiu do ar. Baixe os seis `.zip` e coloque-os (ou os `.txt` extraídos) em `dados/`. Detalhes em [`dados/README.md`](dados/README.md).
  
 Os dados não vão para o repositório: são públicos e somam alguns gigabytes.
  
