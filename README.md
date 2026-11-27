@@ -188,7 +188,7 @@ O protótipo não retreina nada: é apenas a camada de uso do modelo já avaliad
  
 ## Saídas
  
-Tudo vai para `resultados/`. O repositório já traz os resultados da execução final do trabalho e o modelo do protótipo (`modelo_streamlit.joblib`). Os demais modelos treinados passam de 1 GB e não ficam no Git: estão no arquivo `modelos.zip` da [Release v3.0](../../releases) do repositório. Para reaproveitá-los no Colab em vez de retreinar, cole o link desse arquivo em `MODELOS_URL`, no notebook `executar_no_colab.ipynb`; os experimentos complementares (ablação nos quatro modelos e sensibilidade ao corte) são sempre retreinados e levam algumas dezenas de minutos.
+Tudo vai para `resultados/`. O repositório já traz os resultados da execução final do trabalho e o modelo do protótipo (`modelo_streamlit.joblib`). Os demais modelos treinados passam de 1 GB e não ficam no Git: estão no arquivo `modelos.zip` da [Release v1.0](../../releases) do repositório. Para reaproveitá-los no Colab em vez de retreinar, cole o link desse arquivo em `MODELOS_URL`, no notebook `executar_no_colab.ipynb`; os experimentos complementares (ablação nos quatro modelos e sensibilidade ao corte) são sempre retreinados e levam algumas dezenas de minutos.
  
 | Arquivo | Conteúdo |
 |---|---|
