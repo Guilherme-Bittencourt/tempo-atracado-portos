@@ -114,7 +114,7 @@ Os dados não vão para o repositório: são públicos e somam alguns gigabytes.
  
 ### No Google Colab
  
-Abra [`notebooks/executar_no_colab.ipynb`](notebooks/executar_no_colab.ipynb) no Colab, troque `SEU_USUARIO` pelo seu usuário do GitHub, envie os `.zip` da ANTAQ pela barra lateral e execute tudo. Com o Google Drive montado, resultados e modelos ficam em `MyDrive/tcc_tempo_atracado/resultados` e são reaproveitados se a sessão cair.
+Abra [`notebooks/executar_no_colab.ipynb`](notebooks/executar_no_colab.ipynb) no Colab, troque `SEU_USUARIO` por `Guilherme-Bittencourt` (ou pelo seu usuário, se tiver feito um fork), cole em `MODELOS_URL` o link do `modelos.zip` da [Release v1.0](../../releases) para reaproveitar os modelos treinados, envie os `.zip` da ANTAQ pela barra lateral, espere o upload terminar e execute tudo. Com o Google Drive montado, resultados e modelos ficam em `MyDrive/tcc_tempo_atracado/resultados` e são reaproveitados se a sessão cair.
  
 ### Localmente
  
